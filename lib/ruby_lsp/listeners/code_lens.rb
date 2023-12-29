@@ -215,7 +215,14 @@ module RubyLsp
 
       sig { params(group_name: String, method_name: T.nilable(String)).returns(String) }
       def generate_test_command(group_name:, method_name: nil)
-        command = BASE_COMMAND + T.must(@path)
+        cd_command =
+          if DependencyDetector.instance.direct_dependency?(/^rails$/) && T.must(@path).include?("/engines/")
+            engine_name = T.must(T.must(@path).split("/engines/").last).split("/").first
+            "cd engines/#{engine_name} && "
+          else
+            ""
+          end
+        command = cd_command + BASE_COMMAND + T.must(@path)
 
         case DependencyDetector.instance.detected_test_library
         when "minitest"
@@ -230,6 +237,10 @@ module RubyLsp
           if method_name
             command += " --name " + Shellwords.escape(method_name)
           end
+        end
+
+        unless cd_command.empty?
+          command += " && cd ../.."
         end
 
         command
